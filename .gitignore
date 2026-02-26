@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+.env
+.env.*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+data/logs/
+
+# Local data (ETL outputs)
+data/db/
+data/images/
+data/export/
+
+# But keep folder placeholders if you add them
+!data/db/.gitkeep
+!data/images/.gitkeep
+!data/export/.gitkeep
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Temporary
+*.tmp
+*.bak
