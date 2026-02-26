@@ -22,17 +22,18 @@ Thumbs.db
 
 # Logs
 *.log
-data/logs/
+data/logs/*
 
 # Local data (ETL outputs)
-data/db/
-data/images/
-data/export/
+data/db/*
+data/images/*
+data/export/*
 
-# But keep folder placeholders if you add them
+# Keep skeleton directories
 !data/db/.gitkeep
 !data/images/.gitkeep
 !data/export/.gitkeep
+!data/logs/.gitkeep
 
 # Test / coverage
 .coverage

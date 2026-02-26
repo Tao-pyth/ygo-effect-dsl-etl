@@ -13,11 +13,11 @@
 - `card_text_en` TEXT NOT NULL DEFAULT ''
 - `name_ja` TEXT NOT NULL DEFAULT ''
 - `card_text_ja` TEXT NOT NULL DEFAULT ''
-- `card_info_en_json` TEXT NOT NULL DEFAULT ''  （JSON文字列）
-- `card_info_ja_json` TEXT NOT NULL DEFAULT ''  （JSON文字列）
+- `card_info_en` TEXT NOT NULL DEFAULT ''  （JSON文字列）
+- `card_info_ja` TEXT NOT NULL DEFAULT ''  （JSON文字列）
 - `image_relpath` TEXT NOT NULL DEFAULT ''
 - `fetched_at` TEXT NOT NULL DEFAULT ''         （ISO8601）
-- `source_json` TEXT NOT NULL DEFAULT ''        （JSON文字列）
+- `source` TEXT NOT NULL DEFAULT ''        （JSON文字列）
 
 > ポイント：日本語は後追い取得のため、初期から `name_ja` / `card_text_ja` を持つ（空文字OK）。
 
