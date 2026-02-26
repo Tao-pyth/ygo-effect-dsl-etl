@@ -20,6 +20,10 @@ python -m ygo_effect_dsl_etl sync
 - `--request-locale ja`（将来の日本語系で利用）
 - `--rate-limit-ms 200`（レート制御）
 - `--timeout 30`
+- `--image-download-start-delay-sec 3`（URL確定後の猶予）
+- `--image-between-ms 200`（画像ごとの待機）
+- `--image-retry-count 3`
+- `--image-retry-backoff-sec 1`
 
 ### 2) export
 **SQLite → 全件JSONL（data/export/ 固定） + manifest 生成**

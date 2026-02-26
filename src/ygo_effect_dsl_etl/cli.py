@@ -13,7 +13,11 @@ from ygo_effect_dsl_etl.sync import run_sync
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m ygo_effect_dsl_etl")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("sync", help="Fetch API data and upsert into SQLite")
+    sync = sub.add_parser("sync", help="Fetch API data and upsert into SQLite")
+    sync.add_argument("--image-download-start-delay-sec", type=float, default=DEFAULT_CONFIG.image_download_start_delay_sec)
+    sync.add_argument("--image-between-ms", type=int, default=DEFAULT_CONFIG.image_between_ms)
+    sync.add_argument("--image-retry-count", type=int, default=DEFAULT_CONFIG.image_retry_count)
+    sync.add_argument("--image-retry-backoff-sec", type=float, default=DEFAULT_CONFIG.image_retry_backoff_sec)
     sub.add_parser("export", help="Export SQLite data into JSONL + manifest")
     sub.add_parser("enrich-ja", help="Scaffold for Japanese backfill")
     sub.add_parser("doctor", help="Scaffold for ETL health checks")
@@ -32,6 +36,15 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "sync":
+            config = EtlConfig(
+                **{
+                    **DEFAULT_CONFIG.__dict__,
+                    "image_download_start_delay_sec": args.image_download_start_delay_sec,
+                    "image_between_ms": args.image_between_ms,
+                    "image_retry_count": args.image_retry_count,
+                    "image_retry_backoff_sec": args.image_retry_backoff_sec,
+                }
+            )
             return run_sync(config)
         if args.command == "export":
             return run_export(config)
