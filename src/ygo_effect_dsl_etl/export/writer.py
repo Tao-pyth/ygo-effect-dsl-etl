@@ -19,7 +19,13 @@ FIELDS = [
     "card_text_ja",
     "card_info_en",
     "card_info_ja",
-    "image_relpath",
+    "card_images_json",
+    "image_url_full",
+    "image_url_small",
+    "image_url_cropped",
+    "image_relpath_full",
+    "image_relpath_small",
+    "image_relpath_cropped",
     "fetched_at",
     "source",
 ]
@@ -56,11 +62,20 @@ def run_export(config: EtlConfig) -> int:
                 "card_text_ja": _empty(row["card_text_ja"]),
                 "card_info_en": _empty(row["card_info_en"]),
                 "card_info_ja": _empty(row["card_info_ja"]),
-                "image_relpath": _empty(row["image_relpath"]),
+                "card_images_json": _empty(row["card_images_json"]),
+                "image_url_full": _empty(row["image_url_full"]),
+                "image_url_small": _empty(row["image_url_small"]),
+                "image_url_cropped": _empty(row["image_url_cropped"]),
+                "image_relpath_full": _empty(row["image_relpath_full"]),
+                "image_relpath_small": _empty(row["image_relpath_small"]),
+                "image_relpath_cropped": _empty(row["image_relpath_cropped"]),
                 "fetched_at": _empty(row["fetched_at"]),
                 "source": _empty(row["source"]),
             }
-            has_images = has_images or bool(rec["image_relpath"])
+            has_images = has_images or any(
+                bool(rec[key])
+                for key in ("image_relpath_full", "image_relpath_small", "image_relpath_cropped")
+            )
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     manifest = {

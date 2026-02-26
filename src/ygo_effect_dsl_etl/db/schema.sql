@@ -6,7 +6,13 @@ CREATE TABLE IF NOT EXISTS cards (
     card_text_ja TEXT NOT NULL DEFAULT '',
     card_info_en TEXT NOT NULL DEFAULT '',
     card_info_ja TEXT NOT NULL DEFAULT '',
-    image_relpath TEXT NOT NULL DEFAULT '',
+    card_images_json TEXT NOT NULL DEFAULT '',
+    image_url_full TEXT NOT NULL DEFAULT '',
+    image_url_small TEXT NOT NULL DEFAULT '',
+    image_url_cropped TEXT NOT NULL DEFAULT '',
+    image_relpath_full TEXT NOT NULL DEFAULT '',
+    image_relpath_small TEXT NOT NULL DEFAULT '',
+    image_relpath_cropped TEXT NOT NULL DEFAULT '',
     fetched_at TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL DEFAULT 'ygoprodeck'
 );

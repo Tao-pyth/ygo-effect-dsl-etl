@@ -30,7 +30,7 @@
 
 | key | required | type | 例 | 備考 |
 |---|---:|---|---|---|
-| export_schema_version | yes | int | 1 | |
+| export_schema_version | yes | int | 2 | |
 | cid | yes | int | 123456 | Konami ID |
 | name_en | yes | str | "Dark Magician" | APIの `name` |
 | card_text_en | yes | str | "..." | APIの `desc` |
@@ -38,9 +38,21 @@
 | card_text_ja | yes | str | "..." | 初期は空でもOK（後追い取得） |
 | card_info_en | yes | object/str | {...} | type/atk/def 等。構造は自由だが安定させる |
 | card_info_ja | yes | object/str | {...} | 初期は空でもOK（後追い取得） |
-| image_relpath | no | str | "images/123456.jpg" | 無ければ空文字 |
+| card_images_json | yes | str | "[{...}]" | API `card_images` 配列をlossless保持 |
+| image_url_full | yes | str | "https://..." | `card_images[0].image_url` |
+| image_url_small | yes | str | "https://..." | `card_images[0].image_url_small` |
+| image_url_cropped | yes | str | "https://..." | `card_images[0].image_url_cropped` |
+| image_relpath_full | yes | str | "data/images/123456_full.jpg" | 無ければ空文字 |
+| image_relpath_small | yes | str | "data/images/123456_small.jpg" | 無ければ空文字 |
+| image_relpath_cropped | yes | str | "data/images/123456_cropped.jpg" | 無ければ空文字 |
 | fetched_at | yes | str | "2026-02-26T12:34:56+09:00" | ISO8601 |
 | source | yes | str | "ygoprodeck" | |
+
+### 画像3種の扱い
+- YGOPRODeck API の `card_images` 配列から `image_url` / `image_url_small` / `image_url_cropped` を取得する。
+- 代替イラスト対応のため、配列全体を `card_images_json` に保存する。
+- primary画像は `card_images[0]` を使用する。
+- ETLは URL確定後の猶予時間を置いて画像DLを開始し、失敗時は relpath を空文字にして継続する。
 
 ### misc=yes の取り扱い
 - ETL は `misc=yes` を有効にし、返ってきた追加情報を **失わない**形で保持する（`card_info_en` 内に保持可）

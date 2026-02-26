@@ -24,6 +24,12 @@ python -m ygo_effect_dsl_etl enrich-ja
 python -m ygo_effect_dsl_etl doctor
 ```
 
+`sync` の画像ダウンロード関連オプション:
+- `--image-download-start-delay-sec`（URL確定後の猶予秒）
+- `--image-between-ms`（画像ごとの待機ミリ秒）
+- `--image-retry-count`（リトライ回数）
+- `--image-retry-backoff-sec`（指数バックオフの初期待機秒）
+
 終了コード:
 - 0: 成功
 - 1: 実行失敗
@@ -36,9 +42,17 @@ python -m ygo_effect_dsl_etl doctor
 - `name_en`, `card_text_en`
 - `name_ja`, `card_text_ja`
 - `card_info_en`, `card_info_ja`
-- `image_relpath`
+- `card_images_json`（`card_images` のlossless保持）
+- `image_url_full`, `image_url_small`, `image_url_cropped`
+- `image_relpath_full`, `image_relpath_small`, `image_relpath_cropped`
 - `fetched_at`
 - `source`
+
+`export_schema_version=2`（単一 `image_relpath` から3種キーへ破壊的変更）。
+
+## パッケージレイアウト
+- Python パッケージは `src/ygo_effect_dsl_etl/` を正とする
+- ルート直下の同名パッケージは削除済み（import 競合回避）
 
 `data/export/manifest.json`:
 - `export_schema_version`, `created_at`, `record_count`
