@@ -1,163 +1,49 @@
 # ygo-effect-dsl-etl
 
-## Overview
+YGOPRODeck API からカード情報を取得し、SQLiteへ正規化保存して、研究用コーパス（JSONL + manifest）を出力する **ETL専用** リポジトリです。
 
-This repository generates a normalized card corpus for
-**ygo-effect-dsl**.
+## Scope
+- やること: `sync`（取得/保存）・`export`（全件出力）
+- やらないこと: DSL化、探索・分析、意味解釈
 
-Its responsibility is strictly limited to:
-
--   Fetching card data from API
--   Downloading card images
--   Normalizing and storing data into SQLite
--   Exporting the full dataset as JSONL + manifest
-
-This repository **does not** contain any DSL logic, analysis, or
-exploration code.
-
-------------------------------------------------------------------------
-
-## Mission
-
-To provide a reproducible, normalized, machine-readable corpus of card
-data that can be consumed by `ygo-effect-dsl` for state-transition
-modeling and exploration.
-
-------------------------------------------------------------------------
-
-## Responsibilities
-
-### Included
-
--   API ingestion (ja / en)
--   Image download and storage
--   SQLite normalization
--   Idempotent sync
--   Full corpus export
--   Basic health diagnostics
-
-### Explicitly Excluded
-
--   DSL transformation
--   Effect parsing or interpretation
--   Exploration logic
--   Graph generation (Neo4j etc.)
--   Research-level semantics
-
-------------------------------------------------------------------------
-
-## Architecture
-
-    API
-    │
-    ├─ sync → SQLite (normalized)
-    │
-    └─ export → cards.jsonl
-               → manifest.json
-
-------------------------------------------------------------------------
-
-## Directory Structure
-
-    data/
-    ├── db/
-    │   └── normalized.sqlite
-    ├── images/
-    │   └── <cid>.jpg
-    └── export/
-        ├── cards.jsonl
-        └── manifest.json
-
-------------------------------------------------------------------------
+詳細は docs を参照:
+- [00_scope](docs/00_scope.md)
+- [10_contract_export](docs/10_contract_export.md)
+- [15_japanese_enrichment_plan](docs/15_japanese_enrichment_plan.md)
+- [20_data_model_sqlite](docs/20_data_model_sqlite.md)
+- [30_reproducibility](docs/30_reproducibility.md)
+- [40_operations](docs/40_operations.md)
+- [50_changelog_policy](docs/50_changelog_policy.md)
+- [60_test_plan](docs/60_test_plan.md)
 
 ## CLI
-
-### Sync (Fetch → Normalize → Store)
-
-``` bash
+```bash
 python -m ygo_effect_dsl_etl sync
-```
-
--   Fetch data from API
--   Download images
--   Upsert into SQLite
--   Safe to run multiple times (idempotent)
-
-------------------------------------------------------------------------
-
-### Export (Full Corpus)
-
-``` bash
 python -m ygo_effect_dsl_etl export
+python -m ygo_effect_dsl_etl enrich-ja
+python -m ygo_effect_dsl_etl doctor
 ```
 
--   Exports all records to:
-    -   data/export/cards.jsonl
-    -   data/export/manifest.json
+終了コード:
+- 0: 成功
+- 1: 実行失敗
+- 2: 設定エラー
 
-------------------------------------------------------------------------
+## Export contract (minimum)
+`data/export/cards.jsonl`:
+- `export_schema_version`
+- `cid` (konami_id)
+- `name_en`, `card_text_en`
+- `name_ja`, `card_text_ja`
+- `card_info_en`, `card_info_ja`
+- `image_relpath`
+- `fetched_at`
+- `source`
 
-## Export Contract
+`data/export/manifest.json`:
+- `export_schema_version`, `created_at`, `record_count`
+- `languages`, `has_images`, `fields`, `source`
 
-### cards.jsonl (1 record per line)
-
-Minimum fields:
-
--   cid
--   name_ja
--   name_en
--   card_text_ja
--   card_text_en
--   card_info_ja
--   card_info_en
--   image_relpath
--   source
--   fetched_at
--   export_schema_version
-
-------------------------------------------------------------------------
-
-### manifest.json
-
-Contains:
-
--   export_schema_version
--   created_at
--   record_count
--   languages
--   has_images
--   fields
--   source
-
-------------------------------------------------------------------------
-
-## Reproducibility
-
-The exported JSONL file is the canonical dataset used by:
-
-ygo-effect-dsl
-
-The DSL repository must not depend on the internal SQLite structure.
-
-------------------------------------------------------------------------
-
-## Design Principles
-
--   Clear separation between data engineering and research logic
--   Idempotent execution
--   Schema versioning for forward compatibility
--   No semantic interpretation of effect text
-
-------------------------------------------------------------------------
-
-## Future Scope (Optional)
-
--   Data health diagnostics (`doctor` command)
--   Export compression (zstd)
--   Parallel fetch improvements
-
-------------------------------------------------------------------------
-
-## License
-
-TBD
+## Windows operation scripts
+- `scripts/run_sync_export.bat`
+- `scripts/run_sync_export.ps1`
