@@ -21,25 +21,60 @@ def _fetch_card_data(endpoint: str, timeout_s: int) -> list[dict]:
     return payload.get("data", [])
 
 
-def _download_image(url: str, output_path: Path, timeout_s: int, retry_count: int, retry_backoff_sec: float) -> bool:
+import socket
+import shutil
+
+def _download_image(
+    url: str,
+    output_path: Path,
+    timeout_s: int,
+    retry_count: int,
+    retry_backoff_sec: float,
+) -> bool:
     if not url:
         return False
+
+    # すでに正常ファイルがある場合はスキップ
     if output_path.exists() and output_path.stat().st_size > 0:
         return True
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
     for attempt in range(1, retry_count + 1):
         try:
             req = Request(url, headers={"User-Agent": "ygo-effect-dsl-etl/0.1"})
+
             with urlopen(req, timeout=timeout_s) as res:
-                output_path.write_bytes(res.read())
+                # 一時ファイルに書き込み（壊れたファイルを残さないため）
+                tmp_path = output_path.with_suffix(output_path.suffix + ".part")
+                with open(tmp_path, "wb") as f:
+                    # 64KBずつコピー（タイムアウト耐性向上）
+                    shutil.copyfileobj(res, f, length=1024 * 64)
+
+                tmp_path.replace(output_path)
+
             return True
-        except URLError as exc:
+
+        except (URLError, TimeoutError, socket.timeout, OSError) as exc:
             if attempt >= retry_count:
-                LOGGER.warning("image download failed after retries: %s (%s)", url, exc)
+                LOGGER.warning(
+                    "image download failed: url=%s attempts=%d error=%s",
+                    url,
+                    retry_count,
+                    exc,
+                )
                 return False
+
             backoff = retry_backoff_sec * (2 ** (attempt - 1))
-            LOGGER.info("image download retry: url=%s attempt=%d/%d backoff=%.2fs", url, attempt, retry_count, backoff)
+            LOGGER.info(
+                "image retry: url=%s attempt=%d/%d backoff=%.2fs",
+                url,
+                attempt,
+                retry_count,
+                backoff,
+            )
             time.sleep(backoff)
+
     return False
 
 
