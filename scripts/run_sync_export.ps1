@@ -1,12 +1,6 @@
-<# 
-ygo-effect-dsl-etl : sync + export (sample PowerShell)
-
-Usage:
-  powershell -ExecutionPolicy Bypass -File scripts\run_sync_export.ps1
-
-Notes:
-- If you use venv, set $VenvPath.
-- Writes logs to data\logs\etl_YYYYMMDD.log
+<#
+ygo-effect-dsl-etl : sync + export helper
+Application logs are written by Python to data/logs/etl_YYYYMMDD.log
 #>
 
 $ErrorActionPreference = "Stop"
@@ -16,24 +10,16 @@ if (Test-Path $VenvPath) {
   . $VenvPath
 }
 
-$LogDir = "data\logs"
-New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-
-$DateStamp = (Get-Date).ToString("yyyyMMdd")
-$LogFile = Join-Path $LogDir ("etl_{0}.log" -f $DateStamp)
-
-function Run-Step($Title, $Command) {
-  Add-Content -Path $LogFile -Value ("[{0}] start {1}" -f (Get-Date), $Title)
-  try {
-    & $Command 2>&1 | Tee-Object -FilePath $LogFile -Append | Out-Null
-    Add-Content -Path $LogFile -Value ("[{0}] {1} ok" -f (Get-Date), $Title)
-  } catch {
-    Add-Content -Path $LogFile -Value ("[{0}] {1} failed: {2}" -f (Get-Date), $Title, $_.Exception.Message)
-    throw
-  }
+Write-Host "Running sync..."
+python -m ygo_effect_dsl_etl sync
+if ($LASTEXITCODE -ne 0) {
+  throw "sync failed (exit=$LASTEXITCODE)"
 }
 
-Run-Step "sync" { python -m ygo_effect_dsl_etl sync }
-Run-Step "export" { python -m ygo_effect_dsl_etl export }
+Write-Host "Running export..."
+python -m ygo_effect_dsl_etl export
+if ($LASTEXITCODE -ne 0) {
+  throw "export failed (exit=$LASTEXITCODE)"
+}
 
-Write-Host ("Done. Log: {0}" -f $LogFile)
+Write-Host "Done. Check logs in data/logs/etl_YYYYMMDD.log"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+from datetime import datetime
 
 from ygo_effect_dsl_etl.config import DEFAULT_CONFIG, EtlConfig
 from ygo_effect_dsl_etl.doctor import run_doctor
@@ -24,14 +25,57 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _configure_logging() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
+class _ContextDefaultsFilter(logging.Filter):
+    def __init__(self, run_id: str, command: str) -> None:
+        super().__init__()
+        self.run_id = run_id
+        self.command = command
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.run_id = getattr(record, "run_id", self.run_id)
+        record.command = getattr(record, "command", self.command)
+        record.cid = getattr(record, "cid", "")
+        record.url = getattr(record, "url", "")
+        record.attempt = getattr(record, "attempt", "")
+        record.elapsed_ms = getattr(record, "elapsed_ms", "")
+        return True
+
+
+def configure_logging(command: str = "bootstrap", run_id: str | None = None) -> str:
+    resolved_run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+    DEFAULT_CONFIG.logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = DEFAULT_CONFIG.logs_dir / f"etl_{datetime.now().strftime('%Y%m%d')}.log"
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.handlers.clear()
+
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s run_id=%(run_id)s command=%(command)s "
+        "cid=%(cid)s url=%(url)s attempt=%(attempt)s elapsed_ms=%(elapsed_ms)s - %(message)s"
+    )
+    context_filter = _ContextDefaultsFilter(run_id=resolved_run_id, command=command)
+
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    file_handler.addFilter(context_filter)
+    root_logger.addHandler(file_handler)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.WARNING)
+    stream_handler.setFormatter(formatter)
+    stream_handler.addFilter(context_filter)
+    root_logger.addHandler(stream_handler)
+
+    return resolved_run_id
 
 
 def main(argv: list[str] | None = None) -> int:
-    _configure_logging()
+    run_id = configure_logging()
     parser = _build_parser()
     args = parser.parse_args(argv)
+    configure_logging(command=args.command, run_id=run_id)
     config: EtlConfig = DEFAULT_CONFIG
 
     try:

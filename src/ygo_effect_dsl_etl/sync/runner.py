@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
+import socket
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from ygo_effect_dsl_etl.config import EtlConfig
@@ -21,10 +25,8 @@ def _fetch_card_data(endpoint: str, timeout_s: int) -> list[dict]:
     return payload.get("data", [])
 
 
-import socket
-import shutil
-
 def _download_image(
+    cid: int,
     url: str,
     output_path: Path,
     timeout_s: int,
@@ -41,6 +43,7 @@ def _download_image(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     for attempt in range(1, retry_count + 1):
+        started = time.perf_counter()
         try:
             req = Request(url, headers={"User-Agent": "ygo-effect-dsl-etl/0.1"})
 
@@ -53,15 +56,43 @@ def _download_image(
 
                 tmp_path.replace(output_path)
 
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            LOGGER.info(
+                "image download complete",
+                extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
+            )
             return True
-
+        except HTTPError as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            if exc.code == 404:
+                LOGGER.warning(
+                    "image not found (skip without retry): status=%s",
+                    exc.code,
+                    extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
+                )
+                return False
+            if 500 <= exc.code < 600 and attempt < retry_count:
+                backoff = retry_backoff_sec * (2 ** (attempt - 1))
+                LOGGER.info(
+                    "image temporary server error (retry): status=%s backoff=%.2fs",
+                    exc.code,
+                    backoff,
+                    extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
+                )
+                time.sleep(backoff)
+                continue
+            LOGGER.warning(
+                "image download http error",
+                extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
+            )
+            return False
         except (URLError, TimeoutError, socket.timeout, OSError) as exc:
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
             if attempt >= retry_count:
                 LOGGER.warning(
-                    "image download failed: url=%s attempts=%d error=%s",
-                    url,
-                    retry_count,
+                    "image download failed: error=%s",
                     exc,
+                    extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
                 )
                 return False
 
@@ -72,6 +103,7 @@ def _download_image(
                 attempt,
                 retry_count,
                 backoff,
+                extra={"cid": cid, "url": url, "attempt": attempt, "elapsed_ms": elapsed_ms},
             )
             time.sleep(backoff)
 
@@ -79,11 +111,46 @@ def _download_image(
 
 
 def _to_relpath(path: Path) -> str:
-    return str(path.as_posix())
+    data_root = Path("data").resolve()
+    candidate = path if path.is_absolute() else (Path.cwd() / path)
+    try:
+        relative = candidate.resolve().relative_to(data_root)
+        return f"data/{relative.as_posix()}"
+    except ValueError:
+        return str(path.as_posix())
+
+
+@contextmanager
+def _sync_lock(lock_path: Path):
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as exc:
+        raise RuntimeError(f"sync already running (lock exists: {lock_path})") from exc
+    try:
+        os.write(fd, str(os.getpid()).encode("utf-8"))
+        yield
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def run_sync(config: EtlConfig) -> int:
     schema_path = Path(__file__).resolve().parent.parent / "db" / "schema.sql"
+    lock_path = config.db_path.parent / ".sync.lock"
+    try:
+        with _sync_lock(lock_path):
+            return _run_sync_locked(config, schema_path)
+    except RuntimeError as exc:
+        LOGGER.warning("%s", exc)
+        return 2
+
+
+def _run_sync_locked(config: EtlConfig, schema_path: Path) -> int:
+    started_sync = time.perf_counter()
     try:
         cards = _fetch_card_data(config.api_endpoint, config.request_timeout_s)
     except Exception as exc:
@@ -175,6 +242,7 @@ def run_sync(config: EtlConfig) -> int:
             output_path = Path(image_relpath)
             download_attempted += 1
             ok = _download_image(
+                cid,
                 image_url,
                 output_path,
                 config.request_timeout_s,
@@ -184,10 +252,7 @@ def run_sync(config: EtlConfig) -> int:
             if ok:
                 download_success += 1
             else:
-                conn.execute(
-                    f"UPDATE cards SET {relpath_key}='' WHERE cid=?",
-                    (cid,),
-                )
+                conn.execute(f"UPDATE cards SET {relpath_key}='' WHERE cid=?", (cid,))
 
             if config.image_between_ms > 0:
                 time.sleep(config.image_between_ms / 1000)
@@ -201,5 +266,6 @@ def run_sync(config: EtlConfig) -> int:
         skipped_missing_konami,
         download_success,
         download_attempted,
+        extra={"elapsed_ms": int((time.perf_counter() - started_sync) * 1000)},
     )
     return 0
